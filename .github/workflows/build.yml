@@ -10,65 +10,51 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        architecture: [x86_64, arm64]
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y aria2 wget
+    - name: Install aria2
+      run: sudo apt install aria2 -y
 
     - name: Install LLVM
-      run: |
-        sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-
+      run: sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+    
     - name: Set up Android NDK r23b
       run: | 
         aria2c -o android-ndk-r23b-linux.zip https://dl.google.com/android/repository/android-ndk-r23b-linux.zip
         unzip -q -d ~ android-ndk-r23b-linux.zip
       
-    - name: Build for ${{ matrix.architecture }}
+    - name: Build
       run: |
-        # 创建构建目录
-        mkdir -p build/${{ matrix.architecture }}
-        cd build/${{ matrix.architecture }}
-        
-        # 配置CMake
-        if [ ${{ matrix.architecture }} = "x86_64" ]; then
-          cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/x86_64-android.cmake ../../
-        elif [ ${{ matrix.architecture }} = "arm64" ]; then
-          cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/arm64-v8a.cmake ../../
-        fi
-        
-        # 构建项目
+        mkdir build
+        cd build
+        cmake ..
         make
 
     - name: Set outputs
       id: vars
       run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-    - name: Upload artifact for ${{ matrix.architecture }}
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Wrapper.${{ matrix.architecture }}.${{ steps.vars.outputs.sha_short }}
+        name: Wrapper.x86_64.${{ steps.vars.outputs.sha_short }}
         include-hidden-files: true
         path: |
           rootfs
           wrapper
           Dockerfile
 
-    - name: Create Release Zip File for ${{ matrix.architecture }}
-      run: zip -r Wrapper.${{ matrix.architecture }}.${{ steps.vars.outputs.sha_short }}.zip rootfs/ wrapper Dockerfile
+    - name: Create Release Zip File
+      run: zip -r Wrapper.x86_64.${{ steps.vars.outputs.sha_short }}.zip rootfs/ wrapper Dockerfile
       
-    - name: Create Release for ${{ matrix.architecture }}
+    - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        files: Wrapper.${{ matrix.architecture }}.${{ steps.vars.outputs.sha_short }}.zip
+        files: Wrapper.x86_64.${{ steps.vars.outputs.sha_short }}.zip
         body: ${{ github.event.head_commit.message }}
-        name: Wrapper.${{ matrix.architecture }}.${{ steps.vars.outputs.sha_short }}
-        tag_name: Wrapper.${{ matrix.architecture }}.${{ steps.vars.outputs.sha_short }}
+        name: Wrapper.x86_64.${{ steps.vars.outputs.sha_short }}
+        tag_name: Wrapper.x86_64.${{ steps.vars.outputs.sha_short }}
         make_latest: true
+        
